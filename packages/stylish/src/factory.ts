@@ -1,21 +1,21 @@
+import { ComponentPropsWithoutRef } from "react";
 import { createElement } from "./elementary";
-import type { ElementProps, ElementTagNames, StylishElement } from "./index.d";
+import type { ElementProps, ElementTagNames, StyleProps } from "./index.d";
 
-const cache = new Map<string, StylishElement>();
+const cache = new Map<string, unknown>();
 
 type StylishFactory = {
-  [K in ElementTagNames]: (props: ElementProps) => React.ReactElement;
+  [K in ElementTagNames]: (
+    props: ComponentPropsWithoutRef<K> & Partial<StyleProps>,
+  ) => ReturnType<typeof createElement>;
 };
 
 export const stylish = new Proxy({} as StylishFactory, {
-  get(_target, prop: ElementTagNames) {
-    if (!cache.has(prop)) {
-      const element = createElement.bind(
-        null,
-        prop,
-      ) as unknown as StylishElement;
-      cache.set(prop, element);
+  get(_target, tagName: ElementTagNames) {
+    if (!cache.has(tagName)) {
+      const element = (props: ElementProps) => createElement(tagName, props);
+      cache.set(tagName, element);
     }
-    return cache.get(prop)!;
+    return cache.get(tagName)!;
   },
 });

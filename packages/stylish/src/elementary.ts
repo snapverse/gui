@@ -2,36 +2,50 @@ import { createElement as createReactElement } from "react";
 import {
   appendStyleSheet,
   StylishElement,
-  transformStyleProps,
   type ElementProps,
   type ElementTagNames,
   type StyleProps,
 } from ".";
+import CSS from "./utils/css";
 
-const styleKeys = new Set<keyof StyleProps>(
-  Object.keys({} as StyleProps) as (keyof StyleProps)[],
-);
+const styleKeys = new Set<keyof StyleProps>(["display", "color"]);
+
+const classCache = new Map<string, string>();
 
 export const createElement = <
   T extends ElementTagNames,
   P extends ElementProps,
 >(
-  tag: T,
+  tagName: T,
   _props: P,
 ): StylishElement => {
-  const { children, ..._restProps } = _props || {};
+  const { children, ...restProps } = _props || {};
 
-  const props = new Proxy(_restProps as P, {
-    set(target, prop, value) {
-      if (styleKeys.has(prop as keyof StyleProps)) {
-        const stylesheet = transformStyleProps(prop as string, value);
-        appendStyleSheet(stylesheet);
-        target.className += ` ${stylesheet}`;
-      }
+  const props = Object.create({}) as Record<string, unknown>;
 
-      return Reflect.set(target, prop, value);
-    },
-  });
+  for (const [attr, value] of Object.entries(restProps)) {
+    const cacheKey = `${attr}:${value}`;
 
-  return createReactElement<P>(tag, props, children);
+    if (classCache.has(cacheKey)) {
+      const cssClass = classCache.get(cacheKey)!;
+      props.className = props.className ? props.className : "";
+      props.className += ` ${cssClass}`.trim();
+    } else if (styleKeys.has(attr as keyof StyleProps)) {
+      const className = CSS.className(12);
+      const css = `.${className} {
+  ${attr}: ${value}
+}`;
+      props.className = props.className ? props.className : "";
+      props.className += ` ${className}`.trim();
+      appendStyleSheet(css);
+    } else {
+      props[attr] = value;
+    }
+  }
+
+  return createReactElement(
+    tagName,
+    props,
+    children,
+  ) as unknown as StylishElement;
 };
